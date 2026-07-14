@@ -1,0 +1,5 @@
+.env
+*.local.conf
+__pycache__/
+*.pyc
+.vscode/
