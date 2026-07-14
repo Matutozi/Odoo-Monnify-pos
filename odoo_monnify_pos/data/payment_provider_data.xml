@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="payment_provider_monnify" model="payment.provider">
+        <field name="name">Monnify</field>
+        <field name="code">monnify</field>
+        <field name="state">disabled</field>
+        <field name="is_published">False</field>
+    </record>
+</odoo>

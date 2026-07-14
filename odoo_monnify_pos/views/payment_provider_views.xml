@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_payment_provider_form_monnify" model="ir.ui.view">
+        <field name="name">payment.provider.form.monnify</field>
+        <field name="model">payment.provider</field>
+        <field name="inherit_id" ref="payment.payment_provider_form"/>
+        <field name="arch" type="xml">
+            <group name="provider_credentials" position="inside">
+                <group invisible="code != 'monnify'">
+                    <field name="monnify_use_sandbox"/>
+                    <field name="monnify_contract_code" required="code == 'monnify'"/>
+                    <field name="monnify_api_key" required="code == 'monnify'"/>
+                    <field name="monnify_secret_key" required="code == 'monnify'"/>
+                    <field name="monnify_webhook_secret"/>
+                </group>
+            </group>
+        </field>
+    </record>
+</odoo>
