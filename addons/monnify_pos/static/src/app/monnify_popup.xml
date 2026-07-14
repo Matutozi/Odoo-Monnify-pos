@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <!--
+        NOT YET IMPLEMENTED. Owl template for the Monnify account-details
+        popup. TODO: confirm the current Odoo 18 popup template structure
+        before writing this — see monnify_popup.js for what it needs to
+        show (docs/architecture.md section 5.5).
+    -->
+</templates>
