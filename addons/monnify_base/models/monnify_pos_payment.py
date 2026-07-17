@@ -1,4 +1,8 @@
+import json
+
 from odoo import fields, models
+
+AMOUNT_TOLERANCE = 0.01
 
 
 class MonnifyPosPayment(models.Model):
@@ -44,23 +48,51 @@ class MonnifyPosPayment(models.Model):
         Called by both the webhook controller and the verify_monnify_payment
         RPC — must be idempotent (see CLAUDE.md non-negotiable rules).
 
-        TODO: implement per docs/architecture.md section 5.3:
-        - if self.state == "paid", no-op and return
-        - validate payload's paid amount against self.amount. Remember
-          Monnify's status-query endpoint returns amountPaid/totalPayable as
-          STRINGS (see docs/monnify-api-reference.md section 3/7) — convert
-          before comparing. Confirm the webhook payload's type too before
-          trusting it's numeric.
-        - on mismatch: set state "mismatch", do NOT mark paid
-        - on match: set state "paid", amount_paid, paid_on, raw_webhook
-        - call self._notify_pos()
+        ``payload`` is either a webhook's ``eventData`` dict (amountPaid is a
+        JSON number there) or a get_transaction_status responseBody dict
+        (amountPaid is a STRING there) — see docs/monnify-api-reference.md
+        sections 3 and 4. float() handles both shapes, so no caller-specific
+        branching is needed.
         """
-        raise NotImplementedError
+        self.ensure_one()
+        if self.state != "pending":
+            return
+
+        amount_paid = float(payload.get("amountPaid") or 0)
+        raw_webhook = json.dumps(payload)
+
+        if abs(amount_paid - self.amount) > AMOUNT_TOLERANCE:
+            self.write({
+                "state": "mismatch",
+                "amount_paid": amount_paid,
+                "raw_webhook": raw_webhook,
+            })
+            return
+
+        self.write({
+            "state": "paid",
+            "amount_paid": amount_paid,
+            "paid_on": fields.Datetime.now(),
+            "raw_webhook": raw_webhook,
+        })
+        self._notify_pos()
 
     def _notify_pos(self):
-        """Send a bus.bus notification so the open POS session updates live.
+        """Send a bus notification so the open POS session updates live.
 
-        TODO: confirm the exact Odoo 18 bus.bus API before implementing —
-        it moved between 16/17/18 (see CLAUDE.md non-negotiable rules).
+        Confirmed against real Odoo 18 source
+        (point_of_sale/models/pos_bus_mixin.py): pos.config inherits
+        pos.bus.mixin, whose _notify(name, message) wraps
+        self.env["bus.bus"]._sendone(access_token, f"{access_token}-{name}",
+        message) on a private per-session channel — the same mechanism core
+        uses for e.g. CLOSING_SESSION. The frontend subscribes with
+        this.data.connectWebSocket("MONNIFY_PAYMENT_STATUS", handler).
         """
-        raise NotImplementedError
+        self.ensure_one()
+        if not self.pos_session_id:
+            return
+        self.pos_session_id.config_id._notify("MONNIFY_PAYMENT_STATUS", {
+            "local_id": self.id,
+            "pos_order_uid": self.pos_order_uid,
+            "status": self.state,
+        })

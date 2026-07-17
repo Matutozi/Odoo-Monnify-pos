@@ -5,7 +5,7 @@
     "category": "Accounting/Payment",
     "author": "Emmanuel Sobowale",
     "license": "LGPL-3",
-    "depends": ["base", "web"],
+    "depends": ["base", "web", "point_of_sale"],
     "data": [
         "security/ir.model.access.csv",
         "views/res_config_settings_views.xml",

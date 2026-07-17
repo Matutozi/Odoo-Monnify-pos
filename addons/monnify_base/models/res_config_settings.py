@@ -1,5 +1,7 @@
 from odoo import fields, models
 
+from ..services.monnify_client import MonnifyClient
+
 
 class ResConfigSettings(models.TransientModel):
     _inherit = "res.config.settings"
@@ -26,10 +28,13 @@ class ResConfigSettings(models.TransientModel):
     # should call _get_monnify_client()._get_token() and toast success/failure.
 
     def _get_monnify_client(self):
-        """Single place every other component gets a configured MonnifyClient.
-
-        TODO: implement per docs/architecture.md section 5.2 — read the
-        ir.config_parameter values above and return a services.monnify_client
-        .MonnifyClient instance.
-        """
-        raise NotImplementedError
+        """Single place every other component gets a configured MonnifyClient."""
+        icp = self.env["ir.config_parameter"].sudo()
+        return MonnifyClient(
+            api_key=icp.get_param("monnify_base.api_key"),
+            secret_key=icp.get_param("monnify_base.secret_key"),
+            contract_code=icp.get_param("monnify_base.contract_code"),
+            base_url=icp.get_param(
+                "monnify_base.base_url", "https://sandbox.monnify.com"
+            ),
+        )
