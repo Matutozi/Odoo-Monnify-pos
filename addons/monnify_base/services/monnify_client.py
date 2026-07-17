@@ -17,8 +17,19 @@ import base64
 import hashlib
 import hmac
 import time
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import requests
+
+# Monnify interprets expiryDate as a Nigerian wall-clock time (West Africa
+# Time, UTC+1). Compute it in that zone explicitly rather than from a naive
+# datetime.now(): Odoo forces its process timezone to UTC, so a naive "now"
+# is an hour behind real WAT and Monnify rejects the apparently-past date
+# with "Invalid invoice expiry date" (confirmed live, 2026-07-16). Doing it
+# here means no caller can reintroduce that timezone bug.
+_MONNIFY_TZ = ZoneInfo("Africa/Lagos")
+INVOICE_TTL_MINUTES = 40
 
 
 class MonnifyError(Exception):
@@ -55,12 +66,17 @@ class MonnifyClient:
         return self._token
 
     def create_invoice(self, invoice_reference, amount, customer_name,
-                        customer_email, description, expiry_date):
-        """``expiry_date`` must already be formatted ``yyyy-MM-dd HH:mm:ss``
-        and be in the future — that's the caller's responsibility (see
-        docs/monnify-api-reference.md section 2). Returns the raw
+                        customer_email, description):
+        """Create a one-time dynamic virtual account for ``amount``.
+
+        The ``expiryDate`` is generated here (now + INVOICE_TTL_MINUTES, in
+        Nigerian time) so callers can never get the timezone/format wrong —
+        see the _MONNIFY_TZ note at the top of this module. Returns the raw
         ``responseBody`` dict (accountNumber, bankName, accountName,
         transactionReference, etc.)."""
+        expiry_date = (
+            datetime.now(_MONNIFY_TZ) + timedelta(minutes=INVOICE_TTL_MINUTES)
+        ).strftime("%Y-%m-%d %H:%M:%S")
         url = f"{self.base_url}/api/v1/invoice/create"
         headers = {
             "Authorization": f"Bearer {self._get_token()}",
@@ -99,10 +115,10 @@ class MonnifyClient:
 
     @staticmethod
     def compute_transaction_hash(raw_body: bytes, secret_key: str) -> str:
-        # TODO [UNVERIFIED]: confirm the exact hash formula (raw body bytes
-        # vs. specific concatenated fields) and header name against real
-        # Monnify docs or an actual webhook delivery before relying on this
-        # — see docs/monnify-api-reference.md section 4.
+        # Formula confirmed against Monnify's official webhook docs
+        # (2026-07-15, see docs/monnify-api-reference.md section 4):
+        # SHA-512 HMAC keyed with the merchant secret, over the raw request
+        # body bytes exactly as received (not a re-serialized dict).
         return hmac.new(secret_key.encode(), raw_body, hashlib.sha512).hexdigest()
 
     def verify_webhook(self, raw_body: bytes, received_hash: str) -> bool:
