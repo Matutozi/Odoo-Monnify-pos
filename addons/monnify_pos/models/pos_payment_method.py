@@ -1,15 +1,16 @@
-from odoo import fields, models
+from odoo import models
 
 
 class PosPaymentMethod(models.Model):
-    _inherit = "pos.payment_method"
+    _inherit = "pos.payment.method"
 
-    use_payment_terminal_monnify = fields.Boolean(
-        string="Use Monnify (Pay by Transfer)",
-    )
-    # TODO: confirm the real Odoo 18 mechanism for flagging an electronic
-    # payment method's terminal/interface (there may already be a
-    # use_payment_terminal selection field to extend, rather than a new
-    # boolean) against actual Odoo 18 source before relying on this field —
-    # see docs/architecture.md section 5.5 and CLAUDE.md non-negotiable
-    # rules: do not invent Odoo APIs.
+    def _get_payment_terminal_selection(self):
+        # Confirmed against real Odoo 18 source
+        # (point_of_sale/models/pos_payment_method.py) — this is the actual
+        # extension point for use_payment_terminal, following the same
+        # pattern as pos_adyen/pos_razorpay, NOT a selection_add. The value
+        # reaches the POS frontend for free: core's own
+        # _load_pos_data_fields already includes use_payment_terminal.
+        return super()._get_payment_terminal_selection() + [
+            ("monnify", "Monnify (Pay by Transfer)"),
+        ]

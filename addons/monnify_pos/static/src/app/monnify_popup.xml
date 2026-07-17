@@ -1,9 +1,77 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
-    <!--
-        NOT YET IMPLEMENTED. Owl template for the Monnify account-details
-        popup. TODO: confirm the current Odoo 18 popup template structure
-        before writing this — see monnify_popup.js for what it needs to
-        show (docs/architecture.md section 5.5).
-    -->
+
+    <t t-name="monnify_pos.MonnifyPopup">
+        <Dialog title="'Pay by Bank Transfer'" size="'md'">
+            <div class="monnify-popup d-flex flex-column gap-3">
+                <p class="mb-0 text-muted">
+                    Ask the customer to transfer the exact amount to this one-time account.
+                    The screen updates automatically once the payment lands.
+                </p>
+
+                <div class="d-flex flex-column align-items-center gap-1 py-2">
+                    <small class="text-uppercase text-muted">Amount to transfer</small>
+                    <span class="fs-2 fw-bold" t-out="props.amount"/>
+                </div>
+
+                <div class="d-flex flex-column gap-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Bank</span>
+                        <span class="fw-bold" t-out="props.bankName"/>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Account number</span>
+                        <span class="d-flex align-items-center gap-2">
+                            <span class="fs-4 fw-bold font-monospace" t-out="props.accountNumber"/>
+                            <button class="btn btn-sm btn-secondary" t-on-click="onCopy">Copy</button>
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Account name</span>
+                        <span t-out="props.accountName"/>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-center align-items-center gap-2 py-1">
+                    <t t-if="!expired">
+                        <span class="text-muted">Expires in</span>
+                        <span class="fw-bold font-monospace" t-out="countdown"/>
+                    </t>
+                    <t t-else="">
+                        <span class="text-danger fw-bold">This account has expired. Cancel and start a new payment.</span>
+                    </t>
+                </div>
+
+                <t t-if="props.checkoutUrl">
+                    <div class="d-flex justify-content-center border-top pt-2">
+                        <a t-att-href="props.checkoutUrl" target="_blank" rel="noopener" class="small text-muted">
+                            <i class="fa fa-external-link me-1"/>Sandbox test: open Monnify checkout to simulate this payment
+                        </a>
+                    </div>
+                </t>
+
+                <t t-if="state.verifying">
+                    <div class="d-flex justify-content-center align-items-center gap-2 text-muted">
+                        <i class="fa fa-circle-o-notch fa-spin"/>
+                        <span>Checking with Monnify…</span>
+                    </div>
+                </t>
+                <t t-if="state.hint">
+                    <p class="text-center text-muted mb-0" t-out="state.hint"/>
+                </t>
+            </div>
+
+            <t t-set-slot="footer">
+                <button class="btn btn-primary"
+                        t-att-disabled="state.verifying or expired"
+                        t-on-click="onVerifyClick">
+                    Verify Payment
+                </button>
+                <button class="btn btn-secondary" t-on-click="onCancelClick">
+                    Cancel
+                </button>
+            </t>
+        </Dialog>
+    </t>
+
 </templates>
