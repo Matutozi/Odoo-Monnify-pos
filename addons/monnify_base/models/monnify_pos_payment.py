@@ -46,7 +46,8 @@ class MonnifyPosPayment(models.Model):
         """THE single completion function.
 
         Called by both the webhook controller and the verify_monnify_payment
-        RPC — must be idempotent (see CLAUDE.md non-negotiable rules).
+        RPC — must be idempotent (this is the single completion path; both
+        entry points converge here so "mark as paid" is never duplicated).
 
         ``payload`` is either a webhook's ``eventData`` dict (amountPaid is a
         JSON number there) or a get_transaction_status responseBody dict
