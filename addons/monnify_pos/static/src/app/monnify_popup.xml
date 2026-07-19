@@ -2,75 +2,104 @@
 <templates xml:space="preserve">
 
     <t t-name="monnify_pos.MonnifyPopup">
-        <Dialog title="'Pay by Bank Transfer'" size="'md'">
-            <div class="monnify-popup d-flex flex-column gap-3">
-                <p class="mb-0 text-muted">
-                    Ask the customer to transfer the exact amount to this one-time account.
-                    The screen updates automatically once the payment lands.
-                </p>
+        <!-- Dialog's own header/footer/padding are turned off so the popup can
+             render its own branded header and action row (see monnify_popup.css). -->
+        <Dialog header="false" footer="false" withBodyPadding="false"
+                size="'md'" contentClass="'monnify-dialog'">
+            <div class="monnify-popup">
 
-                <div class="d-flex flex-column align-items-center gap-1 py-2">
-                    <small class="text-uppercase text-muted">Amount to transfer</small>
-                    <span class="fs-2 fw-bold" t-out="props.amount"/>
-                </div>
-
-                <div class="d-flex flex-column gap-2">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="text-muted">Bank</span>
-                        <span class="fw-bold" t-out="props.bankName"/>
+                <!-- ============ WAITING ============ -->
+                <t t-if="!ui.paid">
+                    <div class="mn-head">
+                        <span class="mn-mark"><i class="fa fa-credit-card" role="img" aria-label="Monnify"/></span>
+                        <div class="mn-t">
+                            <h1>Pay by Bank Transfer</h1>
+                            <p>Powered by Monnify</p>
+                        </div>
+                        <button class="mn-x" t-on-click="onCancelClick" aria-label="Cancel">
+                            <i class="fa fa-times"/>
+                        </button>
                     </div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="text-muted">Account number</span>
-                        <span class="d-flex align-items-center gap-2">
-                            <span class="fs-4 fw-bold font-monospace" t-out="props.accountNumber"/>
-                            <button class="btn btn-sm btn-secondary" t-on-click="onCopy">Copy</button>
-                        </span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="text-muted">Account name</span>
-                        <span t-out="props.accountName"/>
-                    </div>
-                </div>
 
-                <div class="d-flex justify-content-center align-items-center gap-2 py-1">
-                    <t t-if="!expired">
-                        <span class="text-muted">Expires in</span>
-                        <span class="fw-bold font-monospace" t-out="countdown"/>
-                    </t>
-                    <t t-else="">
-                        <span class="text-danger fw-bold">This account has expired. Cancel and start a new payment.</span>
-                    </t>
-                </div>
+                    <div class="mn-body">
+                        <div class="mn-amount-wrap">
+                            <div class="mn-label">Amount to transfer</div>
+                            <div class="mn-amount mn-num" t-out="props.amount"/>
+                        </div>
 
-                <t t-if="props.checkoutUrl">
-                    <div class="d-flex justify-content-center border-top pt-2">
-                        <a t-att-href="props.checkoutUrl" target="_blank" rel="noopener" class="small text-muted">
-                            <i class="fa fa-external-link me-1"/>Sandbox test: open Monnify checkout to simulate this payment
+                        <div class="mn-panel">
+                            <div class="mn-acct">
+                                <div>
+                                    <div class="mn-label" style="margin-bottom:.15rem">Account number</div>
+                                    <div class="mn-n mn-num" t-out="props.accountNumber"/>
+                                </div>
+                                <button class="mn-copy" t-att-class="{ 'mn-copied': state.copied }" t-on-click="onCopy">
+                                    <i t-att-class="state.copied ? 'fa fa-check' : 'fa fa-clone'"/>
+                                    <span t-out="state.copied ? 'Copied' : 'Copy'"/>
+                                </button>
+                            </div>
+                            <div class="mn-row">
+                                <span class="mn-k">Bank</span>
+                                <span class="mn-v" t-out="props.bankName"/>
+                            </div>
+                            <div class="mn-row">
+                                <span class="mn-k">Account name</span>
+                                <span class="mn-v" t-out="props.accountName"/>
+                            </div>
+                        </div>
+
+                        <p class="mn-hint">
+                            Send the <b>exact amount</b> to this one-time account.
+                            This screen updates <b>automatically</b> the moment payment is received.
+                        </p>
+
+                        <div class="mn-status">
+                            <span class="mn-listening">
+                                <span class="mn-pulse"/>
+                                <t t-esc="state.verifying ? 'Checking with Monnify…' : 'Listening for payment…'"/>
+                            </span>
+                            <span class="mn-expires" t-if="!expired">
+                                Expires in <b class="mn-num" t-out="countdown"/>
+                            </span>
+                            <span class="mn-expires" t-else="">
+                                <b>Expired</b>
+                            </span>
+                        </div>
+
+                        <t t-if="state.hint">
+                            <p class="mn-hint" t-out="state.hint"/>
+                        </t>
+
+                        <a t-if="props.checkoutUrl" class="mn-sandbox" target="_blank"
+                           rel="noopener" t-att-href="props.checkoutUrl">
+                            Sandbox test — open Monnify checkout
                         </a>
                     </div>
-                </t>
 
-                <t t-if="state.verifying">
-                    <div class="d-flex justify-content-center align-items-center gap-2 text-muted">
-                        <i class="fa fa-circle-o-notch fa-spin"/>
-                        <span>Checking with Monnify…</span>
+                    <div class="mn-foot">
+                        <button class="mn-btn mn-primary" t-on-click="onVerifyClick"
+                                t-att-disabled="state.verifying or expired">
+                            <i class="fa fa-check-circle"/>
+                            <span t-out="state.verifying ? 'Checking…' : 'Verify Payment'"/>
+                        </button>
+                        <button class="mn-btn mn-ghost" t-on-click="onCancelClick">Cancel</button>
                     </div>
                 </t>
-                <t t-if="state.hint">
-                    <p class="text-center text-muted mb-0" t-out="state.hint"/>
-                </t>
-            </div>
 
-            <t t-set-slot="footer">
-                <button class="btn btn-primary"
-                        t-att-disabled="state.verifying or expired"
-                        t-on-click="onVerifyClick">
-                    Verify Payment
-                </button>
-                <button class="btn btn-secondary" t-on-click="onCancelClick">
-                    Cancel
-                </button>
-            </t>
+                <!-- ============ PAID ============ -->
+                <t t-else="">
+                    <div class="mn-paid">
+                        <div class="mn-check"><i class="fa fa-check"/></div>
+                        <h2>Payment received</h2>
+                        <div class="mn-amt mn-num" t-out="props.amount"/>
+                        <div class="mn-payer" t-if="ui.payerName">
+                            from <b t-out="ui.payerName"/>
+                        </div>
+                        <div class="mn-done">Completing sale…</div>
+                    </div>
+                </t>
+
+            </div>
         </Dialog>
     </t>
 

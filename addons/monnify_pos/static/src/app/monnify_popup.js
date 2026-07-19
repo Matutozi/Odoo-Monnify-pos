@@ -8,10 +8,14 @@
  *     popup) or false to keep it open for another attempt;
  *   - onCancel(): abandon the transfer.
  *
+ * ``ui`` is a reactive object shared with the interface, so the interface can
+ * flip the popup to its "paid" state when the webhook lands, before closing.
+ *
  * Built on the real Odoo 18 Dialog component (confirmed props/slots in
- * web/core/dialog/dialog.js). No reusable countdown exists in core POS, so
- * the mm:ss timer here follows the useTime() hook's setInterval/clearInterval
- * pattern (point_of_sale/utils/time_hook.js).
+ * web/core/dialog/dialog.js), with Dialog's own header/footer/padding disabled
+ * so the popup renders its own branded chrome. No reusable countdown exists in
+ * core POS, so the mm:ss timer here follows the useTime() hook's
+ * setInterval/clearInterval pattern (point_of_sale/utils/time_hook.js).
  */
 
 import { Component, useState, onWillUnmount } from "@odoo/owl";
@@ -29,6 +33,7 @@ export class MonnifyPopup extends Component {
         amount: String, // pre-formatted currency string
         expiresIn: Number, // seconds
         checkoutUrl: { type: [String, { value: false }], optional: true }, // sandbox testing aid
+        ui: Object, // reactive: { paid, payerName } — owned by the interface
         onVerify: Function,
         onCancel: Function,
     };
@@ -37,8 +42,12 @@ export class MonnifyPopup extends Component {
         this.state = useState({
             remaining: this.props.expiresIn,
             verifying: false,
+            copied: false,
             hint: "",
         });
+        // Shared with PaymentMonnify so a bus push can flip us to "paid".
+        this.ui = useState(this.props.ui);
+
         this._tick = setInterval(() => {
             if (this.state.remaining > 0) {
                 this.state.remaining -= 1;
@@ -46,7 +55,10 @@ export class MonnifyPopup extends Component {
                 clearInterval(this._tick);
             }
         }, 1000);
-        onWillUnmount(() => clearInterval(this._tick));
+        onWillUnmount(() => {
+            clearInterval(this._tick);
+            clearTimeout(this._copyTimer);
+        });
     }
 
     get countdown() {
@@ -66,7 +78,7 @@ export class MonnifyPopup extends Component {
         this.state.hint = "";
         const paid = await this.props.onVerify();
         if (paid) {
-            return; // interface is closing this popup; don't touch state
+            return; // the interface flips us to "paid" and closes; don't touch state
         }
         this.state.verifying = false;
         this.state.hint = _t(
@@ -81,7 +93,9 @@ export class MonnifyPopup extends Component {
     async onCopy() {
         try {
             await navigator.clipboard.writeText(this.props.accountNumber);
-            this.state.hint = _t("Account number copied.");
+            this.state.copied = true;
+            clearTimeout(this._copyTimer);
+            this._copyTimer = setTimeout(() => (this.state.copied = false), 1500);
         } catch {
             // Clipboard blocked (e.g. non-secure context) — cashier can read it out.
         }

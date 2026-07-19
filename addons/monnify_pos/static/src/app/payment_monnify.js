@@ -16,12 +16,17 @@
  *      waiting payment line).
  */
 
+import { reactive } from "@odoo/owl";
 import { _t } from "@web/core/l10n/translation";
 import { PaymentInterface } from "@point_of_sale/app/payment/payment_interface";
 import { register_payment_method } from "@point_of_sale/app/store/pos_store";
 import { AlertDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { ConnectionLostError } from "@web/core/network/rpc";
 import { MonnifyPopup } from "@monnify_pos/app/monnify_popup";
+
+// How long the popup shows "Payment received" before handing back to the POS,
+// so the cashier actually sees the confirmation instead of it vanishing.
+const PAID_DWELL_MS = 1800;
 
 export class PaymentMonnify extends PaymentInterface {
     setup() {
@@ -36,7 +41,9 @@ export class PaymentMonnify extends PaymentInterface {
         // (monnify.pos.payment._notify_pos) lands here.
         this.pos.data.connectWebSocket("MONNIFY_PAYMENT_STATUS", (payload) => {
             if (payload?.status === "paid") {
-                this._busCallbacks.get(payload.local_id)?.();
+                // payer_name is optional — shown on the "paid" state when the
+                // backend includes it, silently omitted otherwise.
+                this._busCallbacks.get(payload.local_id)?.(payload.payer_name);
             }
         });
     }
@@ -85,19 +92,39 @@ export class PaymentMonnify extends PaymentInterface {
         }
         line.monnify_local_id = payload.local_id;
 
+        // Shared with the popup so it can flip to its "Payment received" state.
+        const ui = reactive({ paid: false, payerName: undefined });
+
         return new Promise((resolve) => {
             let removePopup = () => {};
-            const settle = (paid) => {
+            let closed = false;
+            const closePopup = () => {
+                if (!closed) {
+                    closed = true;
+                    removePopup();
+                }
+            };
+            const settle = (paid, payerName) => {
                 if (!this._pending.has(uuid)) {
                     return; // already settled — guard against double resolution
                 }
                 this._pending.delete(uuid);
                 this._busCallbacks.delete(payload.local_id);
-                removePopup();
-                resolve(paid);
+                if (paid) {
+                    // Let the cashier see the confirmation before we hand back.
+                    ui.payerName = payerName;
+                    ui.paid = true;
+                    setTimeout(() => {
+                        closePopup();
+                        resolve(true);
+                    }, PAID_DWELL_MS);
+                } else {
+                    closePopup();
+                    resolve(false);
+                }
             };
             this._pending.set(uuid, { settle, localId: payload.local_id });
-            this._busCallbacks.set(payload.local_id, () => settle(true));
+            this._busCallbacks.set(payload.local_id, (payerName) => settle(true, payerName));
 
             removePopup = this.env.services.dialog.add(
                 MonnifyPopup,
@@ -108,6 +135,7 @@ export class PaymentMonnify extends PaymentInterface {
                     amount: this.env.utils.formatCurrency(payload.amount),
                     expiresIn: payload.expires_in,
                     checkoutUrl: payload.checkout_url,
+                    ui,
                     onVerify: () => this._verify(payload.local_id, settle),
                     onCancel: () => {
                         this._cancelBackend(payload.local_id);
@@ -141,7 +169,7 @@ export class PaymentMonnify extends PaymentInterface {
             return false;
         }
         if (res.state === "paid") {
-            settle(true);
+            settle(true, res.payer_name);
             return true;
         }
         if (res.state === "mismatch") {

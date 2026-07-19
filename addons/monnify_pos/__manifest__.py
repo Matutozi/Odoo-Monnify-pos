@@ -18,6 +18,7 @@
             "monnify_pos/static/src/app/payment_monnify.js",
             "monnify_pos/static/src/app/monnify_popup.js",
             "monnify_pos/static/src/app/monnify_popup.xml",
+            "monnify_pos/static/src/app/monnify_popup.css",
         ],
     },
     "installable": True,
