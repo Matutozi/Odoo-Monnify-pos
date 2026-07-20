@@ -1,24 +1,149 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+
+    <!-- ============ LIST ============ -->
     <record id="view_monnify_pos_payment_list" model="ir.ui.view">
         <field name="name">monnify.pos.payment.list</field>
         <field name="model">monnify.pos.payment</field>
         <field name="arch" type="xml">
-            <list>
-                <field name="name"/>
-                <field name="monnify_tx_ref"/>
-                <field name="pos_session_id"/>
-                <field name="amount"/>
-                <field name="amount_paid"/>
-                <field name="state"/>
+            <list string="Monnify Payments"
+                  decoration-success="state == 'paid'"
+                  decoration-danger="state == 'mismatch'"
+                  decoration-muted="state in ('expired', 'cancelled')">
                 <field name="paid_on"/>
+                <field name="pos_session_id"/>
+                <field name="account_number"/>
+                <field name="bank_name" optional="show"/>
+                <field name="monnify_tx_ref" optional="hide"/>
+                <field name="name" string="Reference" optional="hide"/>
+                <field name="amount" sum="Expected"/>
+                <field name="amount_paid" sum="Received"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'paid'"
+                       decoration-warning="state == 'pending'"
+                       decoration-danger="state == 'mismatch'"/>
+                <field name="currency_id" column_invisible="1"/>
             </list>
         </field>
     </record>
 
+    <!-- ============ FORM ============ -->
+    <record id="view_monnify_pos_payment_form" model="ir.ui.view">
+        <field name="name">monnify.pos.payment.form</field>
+        <field name="model">monnify.pos.payment</field>
+        <field name="arch" type="xml">
+            <form string="Monnify Payment">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" string="Reference"/>
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="Payment">
+                            <field name="state" widget="badge"/>
+                            <field name="amount"/>
+                            <field name="amount_paid"/>
+                            <field name="paid_on"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Virtual account">
+                            <field name="account_number"/>
+                            <field name="bank_name"/>
+                            <field name="account_name"/>
+                        </group>
+                        <group string="Monnify">
+                            <field name="monnify_tx_ref"/>
+                        </group>
+                        <group string="Point of Sale">
+                            <field name="pos_session_id"/>
+                            <field name="pos_order_uid"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Raw payload" name="raw">
+                            <field name="raw_webhook" readonly="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ============ SEARCH / FILTERS ============ -->
+    <record id="view_monnify_pos_payment_search" model="ir.ui.view">
+        <field name="name">monnify.pos.payment.search</field>
+        <field name="model">monnify.pos.payment</field>
+        <field name="arch" type="xml">
+            <search string="Monnify Payments">
+                <field name="name" string="Reference"
+                       filter_domain="['|', '|', ('name', 'ilike', self), ('monnify_tx_ref', 'ilike', self), ('account_number', 'ilike', self)]"/>
+                <field name="pos_session_id"/>
+                <field name="account_number"/>
+
+                <filter name="f_paid" string="Paid" domain="[('state', '=', 'paid')]"/>
+                <filter name="f_pending" string="Awaiting payment" domain="[('state', '=', 'pending')]"/>
+                <filter name="f_attention" string="Needs attention"
+                        domain="[('state', 'in', ('mismatch', 'expired'))]"/>
+                <separator/>
+                <filter name="f_today" string="Today"
+                        domain="[('create_date', '&gt;=', datetime.datetime.combine(context_today(), datetime.time(0,0,0)))]"/>
+
+                <group expand="0" string="Group By">
+                    <filter name="g_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="g_session" string="POS Session" context="{'group_by': 'pos_session_id'}"/>
+                    <filter name="g_bank" string="Bank" context="{'group_by': 'bank_name'}"/>
+                    <filter name="g_day" string="Date" context="{'group_by': 'paid_on:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ============ GRAPH ============ -->
+    <record id="view_monnify_pos_payment_graph" model="ir.ui.view">
+        <field name="name">monnify.pos.payment.graph</field>
+        <field name="model">monnify.pos.payment</field>
+        <field name="arch" type="xml">
+            <graph string="Collections" type="bar" sample="1">
+                <field name="paid_on" interval="day"/>
+                <field name="amount_paid" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- ============ PIVOT ============ -->
+    <record id="view_monnify_pos_payment_pivot" model="ir.ui.view">
+        <field name="name">monnify.pos.payment.pivot</field>
+        <field name="model">monnify.pos.payment</field>
+        <field name="arch" type="xml">
+            <pivot string="Collections" sample="1">
+                <field name="state" type="row"/>
+                <field name="amount_paid" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- ============ ACTION ============ -->
     <record id="action_monnify_pos_payment" model="ir.actions.act_window">
         <field name="name">Monnify Payments</field>
         <field name="res_model">monnify.pos.payment</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">list,graph,pivot,form</field>
+        <field name="search_view_id" ref="view_monnify_pos_payment_search"/>
+        <!-- No default filter: showing every payment means the screen is never
+             empty during a demo. "Today" is one click away in the filter menu. -->
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No Monnify payments yet</p>
+            <p>Every "Pay by Transfer" payment taken in the Point of Sale is logged here —
+               the virtual account shown to the customer, the amount expected, the amount
+               actually received, and its status.</p>
+        </field>
     </record>
+
+    <!-- ============ MENU ============ -->
+    <menuitem id="menu_monnify_pos_payment"
+              name="Monnify Payments"
+              parent="point_of_sale.menu_point_rep"
+              action="action_monnify_pos_payment"
+              sequence="20"/>
+
 </odoo>
