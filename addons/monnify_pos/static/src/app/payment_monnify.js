@@ -1,11 +1,9 @@
 /**
  * Monnify "Pay by Transfer" payment interface for Odoo POS.
  *
- * Subclasses the real Odoo 18 PaymentInterface (confirmed against
- * point_of_sale/static/src/app/payment/payment_interface.js). The frontend
- * never talks to Monnify directly — it only calls the Odoo backend over RPC
- * and listens on the POS bus. All method/service names here were traced to
- * real Odoo 18 source (see docs/architecture.md 5.5); nothing is invented.
+ * Subclasses PaymentInterface. The frontend never talks to Monnify directly —
+ * it only calls the Odoo backend over RPC and listens on the POS bus, so no
+ * API credentials ever reach the browser.
  *
  * Three things can end a pending payment, and all resolve the single Promise
  * returned by send_payment_request via one guarded `settle(paid)`:

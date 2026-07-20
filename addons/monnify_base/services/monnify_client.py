@@ -1,16 +1,12 @@
-"""Monnify API client. Pure Python, no Odoo imports (so it can be exercised
-from a standalone script the same way ``auth.py`` was for the day-1 smoke
-test).
+"""Monnify API client.
 
-See docs/monnify-api-reference.md for verified field names and endpoints,
-and its section 7 "Local verification log" for what has actually been
-confirmed against real sandbox calls vs. what is still assumed from docs.
+Pure Python with no Odoo imports, so it can also be driven from a standalone
+script (see scripts/smoke_test.py).
 
-Note: docs/architecture.md section 5.1 originally sketched this client
-around a two-step Checkout API (init_transaction + pay_with_bank_transfer).
-Verified sandbox testing (auth.py, and monnify-api-reference.md section 2)
-showed a single POST /api/v1/invoice/create call does both steps at once,
-so this client follows that verified flow instead of the original sketch.
+Endpoint paths and response shapes are documented in
+docs/monnify-api-reference.md. A single POST /api/v1/invoice/create both
+creates the transaction and returns the dynamic virtual account, so no
+separate "pay with bank transfer" call is needed.
 """
 
 import base64
@@ -115,10 +111,9 @@ class MonnifyClient:
 
     @staticmethod
     def compute_transaction_hash(raw_body: bytes, secret_key: str) -> str:
-        # Formula confirmed against Monnify's official webhook docs
-        # (2026-07-15, see docs/monnify-api-reference.md section 4):
         # SHA-512 HMAC keyed with the merchant secret, over the raw request
-        # body bytes exactly as received (not a re-serialized dict).
+        # body bytes exactly as received. Re-serializing the parsed JSON would
+        # change key order and spacing, which breaks the comparison.
         return hmac.new(secret_key.encode(), raw_body, hashlib.sha512).hexdigest()
 
     def verify_webhook(self, raw_body: bytes, received_hash: str) -> bool:

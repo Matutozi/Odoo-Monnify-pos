@@ -11,11 +11,8 @@
  * ``ui`` is a reactive object shared with the interface, so the interface can
  * flip the popup to its "paid" state when the webhook lands, before closing.
  *
- * Built on the real Odoo 18 Dialog component (confirmed props/slots in
- * web/core/dialog/dialog.js), with Dialog's own header/footer/padding disabled
- * so the popup renders its own branded chrome. No reusable countdown exists in
- * core POS, so the mm:ss timer here follows the useTime() hook's
- * setInterval/clearInterval pattern (point_of_sale/utils/time_hook.js).
+ * Built on Odoo's Dialog component with its own header/footer/padding disabled,
+ * so the popup renders its own branded chrome (see monnify_popup.css).
  */
 
 import { Component, useState, onWillUnmount } from "@odoo/owl";

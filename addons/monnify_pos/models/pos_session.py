@@ -20,11 +20,10 @@ class PosSession(models.Model):
     def _monnify_error(self, exc):
         """Turn a client exception into an accurate cashier-facing UserError.
 
-        MonnifyError is an API *rejection* (amount too low, bad contract
-        code, expiry, etc.) — its message is actionable, so surface it.
-        A requests error is a genuine connectivity problem — only then is
-        "check your internet" the right message. The old code conflated the
-        two and always blamed the internet, hiding the real cause.
+        MonnifyError is an API *rejection* (amount too low, bad contract code,
+        expiry, etc.) — its message is actionable, so surface it. A requests
+        error is a genuine connectivity problem, and only then is "check your
+        internet" the right thing to tell the cashier.
         """
         if isinstance(exc, MonnifyError):
             _logger.warning("Monnify rejected the request: %s", exc)
@@ -112,9 +111,6 @@ class PosSession(models.Model):
             payment.state = "cancelled"
         return {"state": payment.state if payment.exists() else "unknown"}
 
-    # NOTE: no override of _load_pos_data_fields/_load_pos_data_models is
-    # needed here. Confirmed against real Odoo 18 source
-    # (point_of_sale/models/pos_payment_method.py _load_pos_data_fields):
-    # use_payment_terminal is already among the core fields loaded to the
-    # POS frontend, so pos_payment_method.py's new "monnify" selection value
-    # reaches the frontend for free.
+    # No _load_pos_data_fields override is needed: use_payment_terminal is
+    # already loaded to the POS frontend for pos.payment.method, so the
+    # "monnify" selection value added in pos_payment_method.py reaches it.

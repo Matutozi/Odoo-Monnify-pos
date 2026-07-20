@@ -24,9 +24,6 @@ class ResConfigSettings(models.TransientModel):
         default="https://sandbox.monnify.com",
     )
 
-    # TODO: "Test Connection" button per docs/architecture.md section 5.2 —
-    # should call _get_monnify_client()._get_token() and toast success/failure.
-
     def _get_monnify_client(self):
         """Single place every other component gets a configured MonnifyClient."""
         icp = self.env["ir.config_parameter"].sudo()

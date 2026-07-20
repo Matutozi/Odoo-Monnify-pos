@@ -79,15 +79,11 @@ class MonnifyPosPayment(models.Model):
         self._notify_pos()
 
     def _notify_pos(self):
-        """Send a bus notification so the open POS session updates live.
+        """Push a live update to the open POS session.
 
-        Confirmed against real Odoo 18 source
-        (point_of_sale/models/pos_bus_mixin.py): pos.config inherits
-        pos.bus.mixin, whose _notify(name, message) wraps
-        self.env["bus.bus"]._sendone(access_token, f"{access_token}-{name}",
-        message) on a private per-session channel — the same mechanism core
-        uses for e.g. CLOSING_SESSION. The frontend subscribes with
-        this.data.connectWebSocket("MONNIFY_PAYMENT_STATUS", handler).
+        pos.config._notify() publishes on the session's private bus channel —
+        the same mechanism the POS uses for its own events. The frontend
+        listens on "MONNIFY_PAYMENT_STATUS" and completes the payment line.
         """
         self.ensure_one()
         if not self.pos_session_id:

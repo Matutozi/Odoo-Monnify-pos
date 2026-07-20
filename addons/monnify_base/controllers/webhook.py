@@ -12,25 +12,22 @@ class MonnifyWebhookController(http.Controller):
     @http.route("/monnify/webhook", type="http", auth="public",
                 methods=["POST"], csrf=False)
     def monnify_webhook(self, **kwargs):
-        """Order of operations fixed by docs/architecture.md section 5.4 and
-        docs/monnify-api-reference.md section 4 — do not reorder:
+        """Receive a Monnify payment notification.
 
-          1. read raw body bytes (request.httprequest.data)
-          2. read + verify hash ("monnify-signature" header, confirmed
-             against official Monnify docs) -> 401 on mismatch, no detail
-             leak
-          3. parse JSON, ignore (return 200) unless eventType is
-             SUCCESSFUL_TRANSACTION or REJECTED_PAYMENT
-          4. find monnify.pos.payment by eventData.transactionReference
-             (sudo(), auth is public) -> not found: return 200 anyway
-          5. state != "pending" -> return 200 (dedupe, Monnify resends
-             on anything but HTTP 200)
-          6. REJECTED_PAYMENT -> state "mismatch" directly, not via
-             action_mark_paid (that method is the PAID-completion path only)
-          7. SUCCESSFUL_TRANSACTION -> call record.action_mark_paid(event_data)
-             — the ONE shared completion method, also used by the
-             verify_monnify_payment RPC. It does its own amount check.
-          8. return 200 fast; no heavy work inline
+        The ordering here is security-critical: the signature is verified
+        against the raw request body before any part of the payload is
+        trusted, and a bad signature gets a bare 401 with no detail.
+
+        Monnify retries anything that does not return HTTP 200, so every
+        other outcome — unknown reference, already-processed payment,
+        irrelevant event type — still acknowledges with 200 to stop the
+        retries. State is the dedupe key: only a "pending" record is acted
+        on, so a repeated delivery is a no-op.
+
+        A rejected payment is recorded as a mismatch directly; only a
+        successful one goes through action_mark_paid, which is the single
+        completion path shared with the verify RPC and does its own
+        amount check.
         """
         raw_body = request.httprequest.data
         received_hash = request.httprequest.headers.get("monnify-signature")
