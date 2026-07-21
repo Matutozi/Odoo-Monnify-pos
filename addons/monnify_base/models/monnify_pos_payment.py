@@ -23,6 +23,10 @@ class MonnifyPosPayment(models.Model):
     account_number = fields.Char()
     bank_name = fields.Char()
     account_name = fields.Char()
+    payer_name = fields.Char(
+        help="Name on the account the customer actually paid from, as reported "
+        "by Monnify — shown on the POS confirmation.",
+    )
     amount_paid = fields.Monetary()
     paid_on = fields.Datetime()
     raw_webhook = fields.Text()
@@ -75,8 +79,37 @@ class MonnifyPosPayment(models.Model):
             "amount_paid": amount_paid,
             "paid_on": fields.Datetime.now(),
             "raw_webhook": raw_webhook,
+            "payer_name": self._extract_payer_name(payload),
         })
         self._notify_pos()
+
+    @staticmethod
+    def _extract_payer_name(payload):
+        """The name on the account the customer paid from.
+
+        The webhook (eventData) reports it under paymentSourceInformation; the
+        status-query responseBody reports it under accountDetails /
+        accountPayments — try each shape, then fall back to the customer name.
+        Returns "" when nothing usable is present (e.g. a card payment).
+        """
+        source = payload.get("paymentSourceInformation")
+        if isinstance(source, list) and source:
+            source = source[0]
+        if isinstance(source, dict) and source.get("accountName"):
+            return source["accountName"]
+
+        details = payload.get("accountDetails")
+        if isinstance(details, dict) and details.get("accountName"):
+            return details["accountName"]
+
+        payments = payload.get("accountPayments")
+        if isinstance(payments, list) and payments and payments[0].get("accountName"):
+            return payments[0]["accountName"]
+
+        customer = payload.get("customer")
+        if isinstance(customer, dict) and customer.get("name"):
+            return customer["name"]
+        return ""
 
     def _notify_pos(self):
         """Push a live update to the open POS session.
@@ -92,4 +125,5 @@ class MonnifyPosPayment(models.Model):
             "local_id": self.id,
             "pos_order_uid": self.pos_order_uid,
             "status": self.state,
+            "payer_name": self.payer_name or "",
         })
