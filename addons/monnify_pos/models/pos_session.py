@@ -95,7 +95,11 @@ class PosSession(models.Model):
             if status.get("paymentStatus") == "PAID":
                 payment.action_mark_paid(status)
 
-        return {"state": payment.state, "amount_paid": payment.amount_paid}
+        return {
+            "state": payment.state,
+            "amount_paid": payment.amount_paid,
+            "payer_name": payment.payer_name or "",
+        }
 
     def cancel_monnify_payment(self, local_id):
         """RPC called when the cashier cancels a still-pending transfer

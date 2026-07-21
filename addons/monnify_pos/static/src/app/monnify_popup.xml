@@ -86,8 +86,7 @@
                     </div>
                 </t>
 
-                <!-- ============ PAID ============ -->
-                <t t-else="">
+                <t t-if="ui.paid">
                     <div class="mn-paid">
                         <div class="mn-check"><i class="fa fa-check"/></div>
                         <h2>Payment received</h2>
