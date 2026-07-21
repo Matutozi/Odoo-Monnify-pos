@@ -46,8 +46,11 @@ Both paths run the **same** verification logic, which checks the **paid amount a
 - Real-time auto-confirmation over the Odoo bus.
 - Manual **Verify Payment** fallback — the demo works even if the network hiccups.
 - Exact-amount enforcement — under/over-payments are flagged, never silently accepted.
+- **Payer confirmed by name** — the paid screen shows the account the money actually came from (e.g. "from ADEBAYO JOHN").
 - Webhook signature verification (HMAC-SHA512 over the raw body).
 - Standard Odoo accounting — payments reconcile through Odoo's normal session-close flow, no custom accounting code.
+- **Payments dashboard** — every transfer logged (expected vs received, status, items ordered), in-Odoo and as a standalone view.
+- **AI daily briefing** — Claude turns the day's collections into a plain-English summary for the shop owner; grounded in real data, and kept entirely out of the payment-decision path.
 
 ## How it works
 
@@ -242,7 +245,8 @@ python3 scripts/smoke_test.py
 - Sandbox only; not hardened for production (no live keys).
 - The Monnify auth token is fetched per operation rather than cached across requests.
 - The automatic webhook requires a public URL (ngrok) — the **Verify Payment** button is the offline-safe fallback.
-- Optional roadmap: a settlement-reconciliation report (using Monnify's `SETTLEMENT` webhook), a Settings screen with a "Test Connection" button, and a website/invoice payment provider.
+- The AI daily briefing needs an Anthropic API key (set as the `monnify_base.claude_api_key` system parameter); without it the dashboard degrades gracefully.
+- Optional roadmap — all natural extensions of the same webhook-verified rail: refunds (Monnify Refunds API), a settlement-reconciliation report (using Monnify's `SETTLEMENT` webhook), a Settings screen with a "Test Connection" button, and a website/invoice payment provider for online orders.
 
 ## Team & license
 - License: LGPL-3.
