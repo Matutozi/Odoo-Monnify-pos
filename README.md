@@ -5,7 +5,7 @@
 **API Conference Lagos 2026 — Monnify Developer Challenge**
 Sandbox only. Built on Odoo 18 Community.
 
-📹 **Demo video:** _(2–5 min — link to be added)_
+📹 **Demo video:** _()_
 
 ---
 
